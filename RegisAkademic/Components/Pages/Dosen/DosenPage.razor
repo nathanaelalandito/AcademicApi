@@ -1,0 +1,399 @@
+﻿@page "/dosen"
+@using System.Net.Http.Json
+@using System.ComponentModel.DataAnnotations
+@using NamaProjectFrontend.DTO
+@inject HttpClient Http
+
+<PageTitle>Data Dosen - Sistem Akademik</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Manajemen Akademik</div>
+        <h1>Data Dosen</h1>
+        <p>Kelola informasi dosen dan program studi.</p>
+    </div>
+
+    <button class="btn btn-primary" @onclick="OpenAdd">
+        <span>＋</span> Tambah Dosen
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice notice-info" role="status">
+        @message
+    </div>
+}
+
+<div class="card">
+    <div class="card-heading">
+        <div>
+            <h2>Daftar Dosen</h2>
+            <p style="margin: 5px 0 0; color: var(--muted);">
+                @dosenList.Count data dosen terdaftar
+            </p>
+        </div>
+
+        <span class="badge">Data Dosen</span>
+    </div>
+
+    <div class="toolbar">
+        <input class="form-control"
+               aria-label="Cari dosen"
+               placeholder="Cari nama, NIDN, email, atau prodi..."
+               @bind="searchText"
+               @bind:event="oninput" />
+
+        <button class="btn btn-secondary"
+                @onclick="LoadDosen"
+                disabled="@loading">
+            @(loading ? "Memuat..." : "↻ Muat Ulang")
+        </button>
+    </div>
+
+    @if (loading)
+    {
+        <div class="loading-state">
+            Memuat data dosen...
+        </div>
+    }
+    else if (FilteredDosen.Count == 0)
+    {
+        <div class="empty-state">
+            <strong>
+                @(string.IsNullOrWhiteSpace(searchText)
+                    ? "Belum ada data dosen"
+                    : "Dosen tidak ditemukan")
+            </strong>
+            <p>
+                @(string.IsNullOrWhiteSpace(searchText)
+                    ? "Tambahkan data dosen untuk mulai mengelola informasi akademik."
+                    : "Coba gunakan kata kunci pencarian yang berbeda.")
+            </p>
+
+            @if (string.IsNullOrWhiteSpace(searchText))
+            {
+                <button class="btn btn-primary" @onclick="OpenAdd">
+                    ＋ Tambah Dosen
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>NIDN</th>
+                        <th>Nama Dosen</th>
+                        <th>Email</th>
+                        <th>Program Studi</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in FilteredDosen)
+                    {
+                        <tr @key="d.DosenId">
+                            <td>@d.Nidn</td>
+                            <td>@d.NamaDosen</td>
+                            <td>@d.Email</td>
+                            <td>
+                                <span class="badge">@d.Prodi</span>
+                            </td>
+                            <td>
+
+                                <div class="action-group">
+                                    <a class="btn btn-secondary btn-sm"
+                                       href="@($"/dosen/detail/{d.DosenId}")">
+                                        Detail
+                                    </a>
+
+                                    <button class="btn btn-secondary btn-sm"
+                                            @onclick="() => OpenEdit(d)">
+                                        Edit
+                                    </button>
+
+                                    <button class="btn btn-danger btn-sm"
+                                            @onclick="() => DeleteDosen(d)">
+                                        Hapus
+                                    </button>
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal-panel"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="dosen-modal-title">
+
+            <div class="modal-header">
+                <div>
+                    <div class="eyebrow">
+                        Formulir Dosen
+                    </div>
+                    <h2 id="dosen-modal-title">
+                        @(isEdit ? "Edit Data Dosen" : "Tambah Dosen Baru")
+                    </h2>
+                    <p class="modal-description">
+                        Isi informasi dosen pada kolom di bawah ini.
+                    </p>
+                </div>
+
+                <button type="button"
+                        class="icon-button"
+                        aria-label="Tutup formulir"
+                        @onclick="CloseModal">
+                    ×
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <EditForm Model="form" OnValidSubmit="SaveDosen">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="form-group">
+                        <label for="nidn">NIDN</label>
+                        <InputText id="nidn"
+                                   class="form-control"
+                                   placeholder="Masukkan NIDN"
+                                   @bind-Value="form.Nidn" />
+                        <ValidationMessage For="@(() => form.Nidn)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nama-dosen">Nama Dosen</label>
+                        <InputText id="nama-dosen"
+                                   class="form-control"
+                                   placeholder="Masukkan nama lengkap"
+                                   @bind-Value="form.NamaDosen" />
+                        <ValidationMessage For="@(() => form.NamaDosen)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email-dosen">Email</label>
+                        <InputText id="email-dosen"
+                                   class="form-control"
+                                   placeholder="nama@kampus.ac.id"
+                                   @bind-Value="form.Email" />
+                        <ValidationMessage For="@(() => form.Email)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prodi">Program Studi</label>
+                        <InputText id="prodi"
+                                   class="form-control"
+                                   placeholder="Masukkan program studi"
+                                   @bind-Value="form.Prodi" />
+                        <ValidationMessage For="@(() => form.Prodi)" />
+                    </div>
+
+                    <div class="toolbar">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @onclick="CloseModal"
+                                disabled="@saving">
+                            Batal
+                        </button>
+
+                        <button type="submit"
+                                class="btn btn-primary"
+                                disabled="@saving">
+                            @(saving ? "Menyimpan..." : "Simpan Data")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DosenDto> dosenList = new();
+    private string searchText = "";
+    private string message = "";
+    private bool loading;
+    private bool showModal;
+    private bool isEdit;
+    private bool saving;
+    private int editId;
+
+    private DosenForm form = new();
+
+    private List<DosenDto> FilteredDosen => dosenList.Where(d =>
+        string.IsNullOrWhiteSpace(searchText) ||
+        (d.Nidn ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+        (d.NamaDosen ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+        (d.Email ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+        (d.Prodi ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+    ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDosen();
+    }
+
+    private async Task LoadDosen()
+    {
+        loading = true;
+
+        try
+        {
+            dosenList = await Http.GetFromJsonAsync<List<DosenDto>>(
+                "api/Dosen") ?? new();
+
+            message = "";
+        }
+        catch (Exception ex)
+        {
+            message = "Gagal memuat data: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OpenAdd()
+    {
+        form = new();
+        editId = 0;
+        isEdit = false;
+        showModal = true;
+        message = "";
+    }
+
+    private void OpenEdit(DosenDto d)
+    {
+        editId = d.DosenId;
+
+        form = new()
+        {
+            Nidn = d.Nidn,
+            NamaDosen = d.NamaDosen,
+            Email = d.Email,
+            Prodi = d.Prodi
+        };
+
+        isEdit = true;
+        showModal = true;
+        message = "";
+    }
+
+    private void CloseModal()
+    {
+        if (!saving)
+            showModal = false;
+    }
+
+    private async Task SaveDosen()
+    {
+        saving = true;
+        message = "";
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (isEdit)
+            {
+                response = await Http.PutAsJsonAsync(
+                    $"api/Dosen/{editId}", form);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync(
+                    "api/Dosen", form);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                showModal = false;
+                message = isEdit
+                    ? "Data dosen berhasil diperbarui."
+                    : "Dosen berhasil ditambahkan.";
+
+                await LoadDosen();
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                message = $"Gagal menyimpan ({(int)response.StatusCode}): {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = "Terjadi kesalahan: " + ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteDosen(DosenDto d)
+    {
+        bool confirmed = await Application.Current!.Windows[0]
+            .Page!.DisplayAlert(
+                "Konfirmasi Hapus",
+                $"Yakin ingin menghapus dosen {d.NamaDosen}?",
+                "Hapus",
+                "Batal");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var response = await Http.DeleteAsync(
+                $"api/Dosen/{d.DosenId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                message = "Data dosen berhasil dihapus.";
+                await LoadDosen();
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                message = $"Gagal menghapus ({(int)response.StatusCode}): {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = "Terjadi kesalahan: " + ex.Message;
+        }
+    }
+
+    public class DosenForm
+    {
+        [Required(ErrorMessage = "NIDN wajib diisi.")]
+        [StringLength(20)]
+        public string Nidn { get; set; } = "";
+
+        [Required(ErrorMessage = "Nama dosen wajib diisi.")]
+        [StringLength(100)]
+        public string NamaDosen { get; set; } = "";
+
+        [Required(ErrorMessage = "Email wajib diisi.")]
+        [EmailAddress(ErrorMessage = "Format email tidak valid.")]
+        [StringLength(100)]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Program studi wajib diisi.")]
+        [StringLength(100)]
+        public string Prodi { get; set; } = "";
+    }
+}

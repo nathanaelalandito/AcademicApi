@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RegisAcademiaAPI/AcademicApi.csproj" />
+  <Project Path="RegisAkademic/AcademicHybridApp.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>

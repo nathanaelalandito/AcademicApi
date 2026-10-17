@@ -1,0 +1,162 @@
+﻿@page "/dosen/detail/{Id:int}"
+@using System.Net.Http.Json
+@using NamaProjectFrontend.DTO
+@inject HttpClient Http
+
+<PageTitle>Detail Dosen - Sistem Akademik</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Manajemen Akademik / Dosen</div>
+        <h1>Detail Dosen</h1>
+        <p>Informasi dosen dan mahasiswa bimbingannya.</p>
+    </div>
+
+    <a href="/dosen" class="btn btn-secondary">
+        ← Kembali
+    </a>
+</div>
+
+@if (loading)
+{
+    <div class="card loading-state">Memuat detail dosen...</div>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="notice notice-error">@errorMessage</div>
+}
+else if (dosen is not null)
+{
+    <div class="detail-grid">
+        <section class="card profile-card">
+            <div class="detail-avatar">♙</div>
+            <div class="eyebrow">Profil Dosen</div>
+            <h2>@dosen.NamaDosen</h2>
+            <p class="detail-muted">@dosen.Prodi</p>
+
+            <div class="detail-info">
+                <div>
+                    <span>NIDN</span>
+                    <strong>@dosen.Nidn</strong>
+                </div>
+                <div>
+                    <span>Email</span>
+                    <strong>@dosen.Email</strong>
+                </div>
+                <div>
+                    <span>Program Studi</span>
+                    <strong>@dosen.Prodi</strong>
+                </div>
+            </div>
+
+            <a class="btn btn-primary"
+               href="/dosen">
+                Kembali ke Data Dosen
+            </a>
+        </section>
+
+        <section class="card">
+            <div class="eyebrow">Ringkasan Bimbingan</div>
+            <h2>Mahasiswa Bimbingan</h2>
+
+            <div class="detail-count">
+                @mahasiswaBimbingan.Count
+            </div>
+            <p class="detail-muted">
+                Mahasiswa terdaftar sebagai bimbingan dosen ini.
+            </p>
+
+            <div class="card-heading detail-list-heading">
+                <h3>Daftar Mahasiswa</h3>
+                <span class="badge">@mahasiswaBimbingan.Count mahasiswa</span>
+            </div>
+
+            @if (mahasiswaBimbingan.Count == 0)
+            {
+                <div class="empty-state">
+                    <strong>Belum ada mahasiswa bimbingan</strong>
+                    <p>Mahasiswa yang memilih dosen ini akan tampil di sini.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>NIM</th>
+                                <th>Nama Mahasiswa</th>
+                                <th>Angkatan</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in mahasiswaBimbingan)
+                            {
+                                <tr @key="m.MahasiswaId">
+                                    <td>@m.Nim</td>
+                                    <td>@m.NamaMahasiswa</td>
+                                    <td><span class="badge">@m.Angkatan</span></td>
+                                    <td>
+                                        <a class="btn btn-secondary btn-sm"
+                                           href="@($"/mahasiswa/detail/{m.MahasiswaId}")">
+                                            Detail
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private DosenDto? dosen;
+    private List<MahasiswaDto> mahasiswaBimbingan = new();
+    private bool loading = true;
+    private string errorMessage = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var semuaDosen =
+                await Http.GetFromJsonAsync<List<DosenDto>>("api/Dosen")
+                ?? new();
+
+            var semuaMahasiswa =
+                await Http.GetFromJsonAsync<List<MahasiswaDto>>("api/Mahasiswa")
+                ?? new();
+
+            dosen = semuaDosen.FirstOrDefault(d => d.DosenId == Id);
+
+            if (dosen is null)
+            {
+                errorMessage = "Data dosen tidak ditemukan.";
+                return;
+            }
+
+            mahasiswaBimbingan = semuaMahasiswa
+                .Where(m => m.DosenId == Id)
+                .OrderBy(m => m.NamaMahasiswa)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Gagal memuat detail dosen: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

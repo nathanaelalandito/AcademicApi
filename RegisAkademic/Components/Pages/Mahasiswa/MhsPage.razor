@@ -1,0 +1,478 @@
+﻿@page "/mahasiswa"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using NamaProjectFrontend.DTO
+@inject HttpClient Http
+
+<PageTitle>Data Mahasiswa - Sistem Akademik</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Manajemen Akademik</div>
+        <h1>Data Mahasiswa</h1>
+        <p>Kelola data mahasiswa, angkatan, dan dosen wali.</p>
+    </div>
+
+    <button class="btn btn-primary" @onclick="OpenAdd">
+        <span>＋</span> Tambah Mahasiswa
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="notice notice-info" role="status">
+        @message
+    </div>
+}
+
+<div class="card">
+    <div class="card-heading">
+        <div>
+            <h2>Daftar Mahasiswa</h2>
+            <p style="margin: 5px 0 0; color: var(--muted);">
+                @FilteredMahasiswa.Count dari @mahasiswaList.Count data mahasiswa
+            </p>
+        </div>
+
+        <span class="badge">Data Mahasiswa</span>
+    </div>
+
+    <div class="toolbar">
+        <input class="form-control"
+               aria-label="Cari mahasiswa"
+               placeholder="Cari NIM, nama, atau dosen wali..."
+               @bind="searchText"
+               @bind:event="oninput" />
+
+        <button class="btn btn-secondary"
+                @onclick="LoadData"
+                disabled="@loading">
+            @(loading ? "Memuat..." : "↻ Muat Ulang")
+        </button>
+    </div>
+
+    @if (loading)
+    {
+        <div class="loading-state">
+            Memuat data mahasiswa...
+        </div>
+    }
+    else if (FilteredMahasiswa.Count == 0)
+    {
+        <div class="empty-state">
+            <strong>
+                @(string.IsNullOrWhiteSpace(searchText)
+                    ? "Belum ada data mahasiswa"
+                    : "Mahasiswa tidak ditemukan")
+            </strong>
+            <p>
+                @(string.IsNullOrWhiteSpace(searchText)
+                    ? "Tambahkan data mahasiswa untuk mulai mengelola data akademik."
+                    : "Coba gunakan kata kunci pencarian yang berbeda.")
+            </p>
+
+            @if (string.IsNullOrWhiteSpace(searchText))
+            {
+                <button class="btn btn-primary" @onclick="OpenAdd">
+                    ＋ Tambah Mahasiswa
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>NIM</th>
+                        <th>Nama Mahasiswa</th>
+                        <th>Email</th>
+                        <th>Angkatan</th>
+                        <th>Dosen Wali</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in FilteredMahasiswa)
+                    {
+                        <tr @key="m.MahasiswaId">
+                            <td>@m.Nim</td>
+                            <td>@m.NamaMahasiswa</td>
+                            <td>@m.Email</td>
+                            <td>
+                                <span class="badge">@m.Angkatan</span>
+                            </td>
+                            <td>@m.NamaDosenWali</td>
+                            <td>
+
+                                <div class="action-group">
+                                    <a class="btn btn-secondary btn-sm"
+                                       href="@($"/mahasiswa/detail/{m.MahasiswaId}")">
+                                        Detail
+                                    </a>
+
+                                    <button class="btn btn-secondary btn-sm"
+                                            @onclick="() => OpenEdit(m)">
+                                        Edit
+                                    </button>
+
+                                    <button class="btn btn-danger btn-sm"
+                                            @onclick="() => DeleteMahasiswa(m)">
+                                        Hapus
+                                    </button>
+                                </div>
+
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal-panel"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="mahasiswa-modal-title">
+
+            <div class="modal-header">
+                <div>
+                    <div class="eyebrow">Formulir Mahasiswa</div>
+                    <h2 id="mahasiswa-modal-title">
+                        @(isEdit ? "Edit Data Mahasiswa" : "Tambah Mahasiswa Baru")
+                    </h2>
+                    <p class="modal-description">
+                        Lengkapi informasi mahasiswa dan pilih dosen wali.
+                    </p>
+                </div>
+
+                <button type="button"
+                        class="icon-button"
+                        aria-label="Tutup formulir"
+                        @onclick="CloseModal">
+                    ×
+                </button>
+            </div>
+
+            <div class="modal-body">
+                @if (dosenList.Count == 0)
+                {
+                    <div class="notice notice-error">
+                        Data dosen belum tersedia. Pastikan API Dosen berjalan
+                        dan sudah ada data dosen.
+                    </div>
+
+                    <button class="btn btn-secondary"
+                            @onclick="LoadDosen">
+                        ↻ Muat Ulang Dosen
+                    </button>
+                }
+                else
+                {
+                    <EditForm Model="form" OnValidSubmit="SaveMahasiswa">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="form-group">
+                            <label for="nim">NIM</label>
+                            <InputText id="nim"
+                                       class="form-control"
+                                       placeholder="Masukkan NIM"
+                                       @bind-Value="form.Nim" />
+                            <ValidationMessage For="@(() => form.Nim)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nama-mahasiswa">Nama Mahasiswa</label>
+                            <InputText id="nama-mahasiswa"
+                                       class="form-control"
+                                       placeholder="Masukkan nama lengkap"
+                                       @bind-Value="form.NamaMahasiswa" />
+                            <ValidationMessage For="@(() => form.NamaMahasiswa)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email-mahasiswa">Email</label>
+                            <InputText id="email-mahasiswa"
+                                       class="form-control"
+                                       placeholder="nama@kampus.ac.id"
+                                       @bind-Value="form.Email" />
+                            <ValidationMessage For="@(() => form.Email)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="angkatan">Angkatan</label>
+                            <InputSelect id="angkatan"
+                                         class="form-control"
+                                         @bind-Value="form.Angkatan">
+                                <option value="0">Pilih angkatan</option>
+                                @for (int tahun = 2020; tahun <= 2026; tahun++)
+                                {
+                                    <option value="@tahun">@tahun</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => form.Angkatan)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dosen-wali">Dosen Wali</label>
+                            <InputSelect id="dosen-wali"
+                                         class="form-control"
+                                         @bind-Value="form.DosenId">
+                                <option value="0">Pilih dosen wali</option>
+                                @foreach (var d in dosenList)
+                                {
+                                    <option value="@d.DosenId">
+                                        @d.NamaDosen — @d.Prodi
+                                    </option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => form.DosenId)" />
+                        </div>
+
+                        <div class="toolbar">
+                            <button type="button"
+                                    class="btn btn-secondary"
+                                    @onclick="CloseModal"
+                                    disabled="@saving">
+                                Batal
+                            </button>
+
+                            <button type="submit"
+                                    class="btn btn-primary"
+                                    disabled="@saving">
+                                @(saving ? "Menyimpan..." : "Simpan Data")
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(modalMessage))
+                {
+                    <div class="notice notice-error" role="alert">
+                        @modalMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MahasiswaDto> mahasiswaList = new();
+    private List<DosenDto> dosenList = new();
+
+    private string searchText = "";
+    private string message = "";
+    private string modalMessage = "";
+
+    private bool loading;
+    private bool showModal;
+    private bool isEdit;
+    private bool saving;
+    private int editId;
+
+    private MahasiswaForm form = new();
+
+    private List<MahasiswaDto> FilteredMahasiswa =>
+        mahasiswaList.Where(m =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (m.Nim ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (m.NamaMahasiswa ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (m.NamaDosenWali ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadDosen();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+
+        try
+        {
+            mahasiswaList =
+                await Http.GetFromJsonAsync<List<MahasiswaDto>>(
+                    "api/Mahasiswa") ?? new();
+
+            message = "";
+        }
+        catch (Exception ex)
+        {
+            message = "Gagal memuat mahasiswa: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadDosen()
+    {
+        try
+        {
+            dosenList = await Http.GetFromJsonAsync<List<DosenDto>>(
+                "api/Dosen") ?? new();
+
+            if (dosenList.Count == 0 && showModal)
+                modalMessage = "Belum ada data dosen untuk dipilih.";
+            else
+                modalMessage = "";
+        }
+        catch (Exception ex)
+        {
+            dosenList = new();
+            modalMessage = "Gagal memuat dosen: " + ex.Message;
+        }
+    }
+
+    private async Task OpenAdd()
+    {
+        form = new();
+        editId = 0;
+        isEdit = false;
+        modalMessage = "";
+        message = "";
+
+        await LoadDosen();
+        showModal = true;
+    }
+
+    private async Task OpenEdit(MahasiswaDto m)
+    {
+        form = new()
+        {
+            Nim = m.Nim,
+            NamaMahasiswa = m.NamaMahasiswa,
+            Email = m.Email,
+            Angkatan = m.Angkatan,
+            DosenId = m.DosenId
+        };
+
+        editId = m.MahasiswaId;
+        isEdit = true;
+        modalMessage = "";
+        message = "";
+
+        await LoadDosen();
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        if (!saving)
+            showModal = false;
+    }
+
+    private async Task SaveMahasiswa()
+    {
+        saving = true;
+        modalMessage = "";
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (isEdit)
+            {
+                response = await Http.PutAsJsonAsync(
+                    $"api/Mahasiswa/{editId}", form);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync(
+                    "api/Mahasiswa", form);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                showModal = false;
+                message = isEdit
+                    ? "Data mahasiswa berhasil diperbarui."
+                    : "Mahasiswa berhasil ditambahkan.";
+
+                await LoadData();
+            }
+            else
+            {
+                modalMessage =
+                    $"Gagal menyimpan ({(int)response.StatusCode}): " +
+                    await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            modalMessage = "Terjadi kesalahan: " + ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteMahasiswa(MahasiswaDto m)
+    {
+        bool confirmed = await Application.Current!.Windows[0]
+            .Page!.DisplayAlert(
+                "Konfirmasi Hapus",
+                $"Yakin ingin menghapus mahasiswa {m.NamaMahasiswa}?",
+                "Hapus",
+                "Batal");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var response = await Http.DeleteAsync(
+                $"api/Mahasiswa/{m.MahasiswaId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                message = "Data mahasiswa berhasil dihapus.";
+                await LoadData();
+            }
+            else
+            {
+                message =
+                    $"Gagal menghapus ({(int)response.StatusCode}): " +
+                    await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = "Terjadi kesalahan: " + ex.Message;
+        }
+    }
+
+    public class MahasiswaForm
+    {
+        [Required(ErrorMessage = "NIM wajib diisi.")]
+        [StringLength(20)]
+        public string Nim { get; set; } = "";
+
+        [Required(ErrorMessage = "Nama mahasiswa wajib diisi.")]
+        [StringLength(100)]
+        public string NamaMahasiswa { get; set; } = "";
+
+        [Required(ErrorMessage = "Email wajib diisi.")]
+        [EmailAddress(ErrorMessage = "Format email tidak valid.")]
+        [StringLength(100)]
+        public string Email { get; set; } = "";
+
+        [Range(2020, 2026, ErrorMessage = "Pilih angkatan 2020–2026.")]
+        public int Angkatan { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Pilih dosen wali.")]
+        public int DosenId { get; set; }
+    }
+}

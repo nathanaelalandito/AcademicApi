@@ -1,0 +1,27 @@
+﻿@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <NavMenu />
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <span class="topbar-label">SISTEM INFORMASI AKADEMIK</span>
+                <div class="topbar-title">Panel Administrasi</div>
+            </div>
+
+            
+            <a href="/profil" class="user-chip">
+                <span class="user-avatar">A</span>
+                <span>
+                    <strong>Administrator</strong>
+                    <small>Lihat profil</small>
+                </span>
+            </a>
+        </header>
+
+        <section class="page-container">
+            @Body
+        </section>
+    </main>
+</div>

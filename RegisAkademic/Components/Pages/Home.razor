@@ -1,0 +1,387 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject HttpClient Http
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="dashboard-page">
+    <div class="dashboard-heading">
+        <div>
+            <p class="dashboard-eyebrow">PANEL ADMINISTRASI</p>
+            <h1>Dashboard</h1>
+            <p class="dashboard-subtitle">
+                Ringkasan data dosen dan mahasiswa.
+            </p>
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="MuatData"
+                disabled="@loading">
+            ↻ @(loading ? "Memuat..." : "Refresh Data")
+        </button>
+    </div>
+
+    @if (loading)
+    {
+        <div class="dashboard-message">
+            <div class="dashboard-spinner"></div>
+            <p>Memuat data dashboard...</p>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="notice notice-error">
+            @errorMessage
+            <button class="btn btn-secondary btn-sm"
+                    @onclick="MuatData">
+                Coba Lagi
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-stats">
+            <a href="/dosen" class="dashboard-stat">
+                <div class="stat-top">
+                    <span class="stat-icon stat-icon-teal">♙</span>
+                    <span class="stat-arrow">↗</span>
+                </div>
+                <p>Total Dosen</p>
+                <h2>@dosen.Count</h2>
+                <span class="stat-caption">Lihat data dosen</span>
+            </a>
+
+            <a href="/mahasiswa" class="dashboard-stat">
+                <div class="stat-top">
+                    <span class="stat-icon stat-icon-blue">♧</span>
+                    <span class="stat-arrow">↗</span>
+                </div>
+                <p>Total Mahasiswa</p>
+                <h2>@mahasiswa.Count</h2>
+                <span class="stat-caption">Lihat data mahasiswa</span>
+            </a>
+
+            <div class="dashboard-stat">
+                <div class="stat-top">
+                    <span class="stat-icon stat-icon-purple">▤</span>
+                    <span class="stat-arrow">●</span>
+                </div>
+                <p>Angkatan Berbeda</p>
+                <h2>@DataAngkatan.Count</h2>
+                <span class="stat-caption">Tahun masuk mahasiswa</span>
+            </div>
+
+            <div class="dashboard-stat">
+                <div class="stat-top">
+                    <span class="stat-icon stat-icon-orange">◎</span>
+                    <span class="stat-arrow">●</span>
+                </div>
+                <p>Rata-rata Mahasiswa/Dosen</p>
+                <h2>@RataRataMahasiswa.ToString("0.0")</h2>
+                <span class="stat-caption">Berdasarkan data saat ini</span>
+            </div>
+        </div>
+
+        <div class="dashboard-charts">
+            <section class="dashboard-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Mahasiswa per Dosen</h3>
+                        <p>Jumlah mahasiswa berdasarkan dosen wali</p>
+                    </div>
+                    <span class="panel-icon">▥</span>
+                </div>
+
+                @if (DataDosen.Count == 0)
+                {
+                    <div class="chart-empty">
+                        Belum ada data dosen untuk ditampilkan.
+                    </div>
+                }
+                else
+                {
+                    <div class="bar-chart">
+                        @foreach (var item in DataDosen)
+                        {
+                            <div class="bar-item" @key="item.Label">
+                                <div class="bar-label">
+                                    <span title="@item.Label">@item.Label</span>
+                                    <strong>@item.Value</strong>
+                                </div>
+                                <div class="bar-track">
+                                    <div class="bar-fill"
+                                         style="@($"width: {LebarBar(item.Value, MaksMahasiswaPerDosen)}%")">
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <a href="/dosen" class="panel-link">
+                    Lihat semua dosen <span>→</span>
+                </a>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Mahasiswa per Angkatan</h3>
+                        <p>Persebaran jumlah mahasiswa berdasarkan angkatan</p>
+                    </div>
+                    <span class="panel-icon">▤</span>
+                </div>
+
+                @if (DataAngkatan.Count == 0)
+                {
+                    <div class="chart-empty">
+                        Belum ada data angkatan mahasiswa.
+                    </div>
+                }
+                else
+                {
+                    <div class="bar-chart">
+                        @foreach (var item in DataAngkatan)
+                        {
+                            <div class="bar-item" @key="item.Label">
+                                <div class="bar-label">
+                                    <span>Angkatan @item.Label</span>
+                                    <strong>@item.Value</strong>
+                                </div>
+                                <div class="bar-track">
+                                    <div class="bar-fill bar-fill-purple"
+                                         style="@($"width: {LebarBar(item.Value, MaksMahasiswaPerAngkatan)}%")">
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <a href="/mahasiswa" class="panel-link">
+                    Lihat semua mahasiswa <span>→</span>
+                </a>
+            </section>
+        </div>
+
+        <section class="dashboard-panel dashboard-recent">
+            <div class="panel-heading">
+                <div>
+                    <h3>Data Mahasiswa</h3>
+                    <p>Ringkasan mahasiswa yang terdaftar</p>
+                </div>
+                <a href="/mahasiswa" class="btn btn-secondary btn-sm">
+                    Lihat Semua
+                </a>
+            </div>
+
+            @if (mahasiswa.Count == 0)
+            {
+                <div class="chart-empty">
+                    Belum ada mahasiswa. Tambahkan data melalui halaman
+                    Data Mahasiswa.
+                </div>
+            }
+            else
+            {
+                <div class="dashboard-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>NIM</th>
+                                <th>Nama Mahasiswa</th>
+                                <th>Angkatan</th>
+                                <th>Dosen Wali</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in mahasiswa
+                                .OrderByDescending(x => GetText(x, "MahasiswaId"))
+                                .Take(5))
+                            {
+                                <tr @key='GetText(m, "MahasiswaId")'>
+                                    <td>@GetText(m, "Nim")</td>
+                                    <td>@GetText(m, "NamaMahasiswa")</td>
+                                    <td>
+                                        <span class="dashboard-badge">
+                                            @GetText(m, "Angkatan")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @(string.IsNullOrWhiteSpace(
+                                            GetText(m, "NamaDosenWali"))
+                                            ? "-"
+                                            : GetText(m, "NamaDosenWali"))
+                                    </td>
+                                    <td>
+                                        <a class="btn btn-secondary btn-sm"
+                                           href="@($"/mahasiswa/detail/{GetText(m, "MahasiswaId")}")">
+                                            Detail
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="dashboard-panel dashboard-quick">
+            <div class="panel-heading">
+                <div>
+                    <h3>Akses Cepat</h3>
+                    <p>Pilih menu yang ingin kamu buka</p>
+                </div>
+            </div>
+
+            <div class="quick-grid">
+                <a href="/dosen" class="quick-item">
+                    <span class="quick-item-icon">♙</span>
+                    <span>
+                        <strong>Data Dosen</strong>
+                        <small>Kelola data dosen</small>
+                    </span>
+                    <span class="quick-arrow">→</span>
+                </a>
+
+                <a href="/mahasiswa" class="quick-item">
+                    <span class="quick-item-icon">♧</span>
+                    <span>
+                        <strong>Data Mahasiswa</strong>
+                        <small>Kelola data mahasiswa</small>
+                    </span>
+                    <span class="quick-arrow">→</span>
+                </a>
+
+                <a href="/profil" class="quick-item">
+                    <span class="quick-item-icon">◎</span>
+                    <span>
+                        <strong>Profil Admin</strong>
+                        <small>Lihat profil administrator</small>
+                    </span>
+                    <span class="quick-arrow">→</span>
+                </a>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private List<JsonElement> dosen = new();
+    private List<JsonElement> mahasiswa = new();
+
+    private bool loading = true;
+    private string errorMessage = "";
+
+    private sealed class ChartItem
+    {
+        public string Label { get; set; } = "";
+        public int Value { get; set; }
+    }
+
+    private List<ChartItem> DataDosen =>
+        dosen.Select(d =>
+        {
+            var id = GetText(d, "DosenId");
+
+            var jumlah = mahasiswa.Count(m =>
+                GetText(m, "DosenId") == id &&
+                !string.IsNullOrWhiteSpace(id));
+
+            return new ChartItem
+            {
+                Label = GetText(d, "NamaDosen"),
+                Value = jumlah
+            };
+        })
+        .OrderByDescending(x => x.Value)
+        .Take(6)
+        .ToList();
+
+    private List<ChartItem> DataAngkatan =>
+        mahasiswa
+            .GroupBy(m =>
+            {
+                var tahun = GetText(m, "Angkatan");
+                return string.IsNullOrWhiteSpace(tahun)
+                    ? "Tidak diketahui"
+                    : tahun;
+            })
+            .Select(g => new ChartItem
+            {
+                Label = g.Key,
+                Value = g.Count()
+            })
+            .OrderBy(x => x.Label)
+            .ToList();
+
+    private int MaksMahasiswaPerDosen =>
+        Math.Max(1, DataDosen.Select(x => x.Value).DefaultIfEmpty(0).Max());
+
+    private int MaksMahasiswaPerAngkatan =>
+        Math.Max(1, DataAngkatan.Select(x => x.Value).DefaultIfEmpty(0).Max());
+
+    private double RataRataMahasiswa =>
+        dosen.Count == 0 ? 0 : (double)mahasiswa.Count / dosen.Count;
+
+    private static int LebarBar(int nilai, int maksimum) =>
+        maksimum <= 0 ? 0 : Math.Max(3, nilai * 100 / maksimum);
+
+    private static string GetText(JsonElement item, string property)
+    {
+        if (item.ValueKind != JsonValueKind.Object)
+            return "";
+
+        foreach (var p in item.EnumerateObject())
+        {
+            if (string.Equals(
+                p.Name, property, StringComparison.OrdinalIgnoreCase))
+            {
+                if (p.Value.ValueKind == JsonValueKind.Null)
+                    return "";
+
+                return p.Value.ValueKind == JsonValueKind.String
+                    ? p.Value.GetString() ?? ""
+                    : p.Value.ToString();
+            }
+        }
+
+        return "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await MuatData();
+    }
+
+    private async Task MuatData()
+    {
+        loading = true;
+        errorMessage = "";
+
+        try
+        {
+            var dataDosen = await Http.GetFromJsonAsync<List<JsonElement>>(
+                "api/Dosen");
+
+            var dataMahasiswa =
+                await Http.GetFromJsonAsync<List<JsonElement>>(
+                    "api/Mahasiswa");
+
+            dosen = dataDosen ?? new();
+            mahasiswa = dataMahasiswa ?? new();
+        }
+        catch (Exception)
+        {
+            errorMessage =
+                "Gagal memuat dashboard. Periksa koneksi API dan coba lagi.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

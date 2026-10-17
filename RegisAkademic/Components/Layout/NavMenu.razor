@@ -1,0 +1,45 @@
+﻿@using Microsoft.AspNetCore.Components.Routing
+
+<aside class="sidebar">
+    <a href="/" class="brand">
+        <span class="brand-icon">SA</span>
+        <span>
+            <strong>Sistem Akademik</strong>
+            <small>Kelola data kampus</small>
+        </span>
+    </a>
+
+    <div class="menu-label">MENU UTAMA</div>
+
+    <nav class="side-nav">
+        <NavLink href="/" Match="NavLinkMatch.All" class="side-link">
+            <span class="nav-icon">⌂</span>
+            <span>Dashboard</span>
+        </NavLink>
+
+        <NavLink href="/dosen" class="side-link">
+            <span class="nav-icon">♙</span>
+            <span>Data Dosen</span>
+        </NavLink>
+
+        <NavLink href="/mahasiswa" class="side-link">
+            <span class="nav-icon">♧</span>
+            <span>Data Mahasiswa</span>
+        </NavLink>
+    </nav>
+
+    <div class="sidebar-bottom">
+        <div class="menu-label">PENGATURAN</div>
+
+        <NavLink href="/profil" class="side-link">
+            <span class="nav-icon">◎</span>
+            <span>Profil</span>
+        </NavLink>
+    </div>
+
+    <div class="sidebar-footer">
+        <span class="status-dot"></span>
+        Sistem Akademik
+        <small>Versi 1.0</small>
+    </div>
+</aside>
